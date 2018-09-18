@@ -1,0 +1,530 @@
+using System;
+using System.Configuration;
+using System.IO;
+using System.Linq;
+using System.Web;
+using System.Web.Hosting;
+using System.Web.Mvc;
+using System.Web.Security;
+using NNPLalitpur.Filters;
+using NNPLalitpur.Models;
+using NNPLalitpur.Models.Classes;
+using WebMatrix.WebData;
+namespace NNPLalitpur.Controllers
+{
+public class AccountController : Controller
+{
+NPPLalitpur_DbContext objDBCntxt = new NPPLalitpur_DbContext();
+Common ObjCommon = new Common();
+[NoSessionTimeoutAttribute]
+public ActionResult Registration(string returnUrl)
+{
+ViewBag.ReturnUrl = returnUrl;
+CitizenRegistration model = new CitizenRegistration();
+District modelDistrict = new District();
+modelDistrict = objDBCntxt.GetDistrict(0, 49).FirstOrDefault();
+Session.Abandon();
+Session.Clear();
+Session.RemoveAll();
+//Add for encryption
+Random rd = new Random();
+string seed = rd.Next(100000, 999999).ToString();
+Session["SeedValue"] = seed;
+model.seed = seed;
+SectionShow("submit");
+model.DistrictName = modelDistrict.DistrictName;
+Session["DistrictName"] = modelDistrict.DistrictName;
+return View(model);
+}
+[NoSessionTimeoutAttribute]
+public ActionResult generateCaptcha()
+{
+var dropdowndata = this.Session.SessionID.ToString() + ".png";
+string filePath = AppDomain.CurrentDomain.BaseDirectory + "./Content/writereaddata/Captcha/" + dropdowndata;
+System.Drawing.FontFamily family = new System.Drawing.FontFamily("Arial");
+CaptchaImage img = new CaptchaImage(150, 50, family);
+string text = img.CreateRandomText(4).ToUpper();
+img.SetText(text);
+img.GenerateImage();
+Session["captchaText"] = text;
+img.Image.Save(filePath, System.Drawing.Imaging.ImageFormat.Png);
+byte[] d = System.IO.File.ReadAllBytes(filePath);
+System.IO.File.Delete(filePath);
+//return File(d, "application/octet-stream");
+var bytestrim = d;
+return base.File(bytestrim, "image/png");
+//return Json("/Content/writereaddata/Captcha/" + dropdowndata + "?t=" + DateTime.Now.Ticks, JsonRequestBehavior.AllowGet);
+//test
+}
+[NoSessionTimeoutAttribute]
+[HttpPost]
+public ActionResult Registration(CitizenRegistration model)
+{
+SectionShow("submit");
+if (model.CitizenName != null && model.CitizenName != "" && model.MobileNumber != null && model.MobileNumber != "")
+{
+GetStatus ObjGS = new GetStatus();
+try
+{
+Random rd = new Random();
+string seed = rd.Next(100000, 999999).ToString();
+Session["SeedValue"] = seed;
+model.seed = seed;
+ObjGS = objDBCntxt.SubmitCitizenRegistration(model).FirstOrDefault();
+if (ObjGS.status == 1)
+{
+Session["FirstUserId"] = ObjGS.userId;
+SMSToUserForEmailVerification(model.MobileNumber.Trim(), ObjGS.userId);
+model.Msg = "An OTP has been sent to your registered mobile number <span style='font-weight:bold'>" + model.MobileNumber.Trim() + "</span>" + " and should reach you in few seconds.";
+model.OTPSend = 1;
+TempData["Message"] = "Citizen details registered successfully.";
+}
+else if (ObjGS.status == 2)
+{
+TempData["Message"] = "Citizen details already exist!";
+}
+else if (ObjGS.status == 3)
+{
+TempData["Message"] = "Unexpected error occurred!";
+}
+else
+{
+TempData["Message"] = "Citizen details not saved!";
+}
+}
+catch (Exception ex)
+{
+TempData["Message"] = ex.Message;
+}
+}
+return View(model);
+}
+[NoSessionTimeoutAttribute]
+[HttpPost]
+public ActionResult Login(string Command, CitizenRegistration model, string returnUrl)
+{
+SectionShow("login");
+if (model.loginID != null && model.loginID != "" && model.userPassword != null && model.userPassword != "" && model.Captcha != null && model.Captcha != "")
+{
+if (Command == "Refresh")
+{
+return View(model);
+}
+else if (Convert.ToString(Session["captchaText"]) == model.Captcha.ToString())
+{
+string oldseed = model.seed.ToString();//Session["SeedValue"].ToString();
+Random rd = new Random();
+string s = rd.Next(100000, 999999).ToString();
+Session["SeedValue"] = s;
+model.seed = s;
+UserModel objUM = objDBCntxt.GetLogin(model).FirstOrDefault();
+if (objUM != null)
+{
+bool isAllow = false;
+UserTrail UTStatus = objDBCntxt.getAuditStatusDetails(model.loginID, "Invalid Username/Password").FirstOrDefault();
+if (UTStatus != null)
+{
+DateTime wrongAttemptDate = DateTime.Parse(DateTime.Parse((UTStatus.UserDateTime).ToString()).ToString("dd/MM/yyyy HH:mm:ss"));
+DateTime currentDate = DateTime.Now;
+double diff = (currentDate).Subtract(wrongAttemptDate).TotalMinutes;
+if (Convert.ToInt32(objUM.wrongAttemptsCount) >= 5)
+{
+isAllow = false;
+}
+else
+{
+isAllow = true;
+}
+}
+else
+{
+isAllow = true;
+}
+if (isAllow)
+{
+if (model.userPassword.ToString().ToUpper() == System.Web.Security.FormsAuthentication.HashPasswordForStoringInConfigFile(objUM.userPassword.ToUpper() + oldseed.ToUpper(), "MD5").ToUpper())
+{
+FormsAuthentication.SetAuthCookie(model.loginID, false);
+if (Url.IsLocalUrl(returnUrl) && returnUrl.Length > 1 && returnUrl.StartsWith("/")
+&& !returnUrl.StartsWith("//") && !returnUrl.StartsWith("/\\"))
+{
+return Redirect(returnUrl);
+}
+else
+{
+Session["DisplayName"] = objUM.DisplayName;
+Session["UsrRoleID"] = objUM.RoleID;
+Session["UserId"] = objUM.userId;
+Session["Loginid"] = objUM.loginID;
+Session["DesignationName"] = objUM.DesignationName;
+Session["Lastlogin"] = objUM.lastLogin;
+Session["PhotoPath"] = objUM.photoPath;
+Session["RegistrationId"] = objUM.RegistrationIdData;
+objDBCntxt.UpdateAuditStatus(ObjCommon.getIPAddress(), DateTime.Now, model.loginID.Trim(), objUM.userId, Request.Url.AbsolutePath, "UpdateAttemptCountOnLoginSuccess");
+if (objUM.RoleID == "PUB")
+{
+CitizenRegistration objCheck = objDBCntxt.GetEmailMobileVerificationFlag(objUM.userId).FirstOrDefault();
+if (objCheck != null)
+{
+if (Convert.ToBoolean(objCheck.isPasswordChange) == false)
+{
+// Response.Redirect("frmChangePassword.aspx");
+SectionShow("changePass");
+}
+//else if (Convert.ToBoolean(objCheck.isMobileVerify) == false)
+//{
+// return RedirectToAction("UpdateEmailMobile","Account");
+//}
+else
+{
+return RedirectToAction("ViewDashboard", "Dashboard");
+}
+}
+}
+else if (objUM.RoleID == "ADM")
+{
+//return RedirectToAction("Dashboard", "Admin");
+return RedirectToAction("ViewDashBoard","CG_Admin");
+}
+else if (objUM.RoleID == "OFC")
+{
+//return RedirectToAction("Dashboard", "Admin");
+return RedirectToAction("ComplaintStatus", "OFC");
+}
+}
+}
+else
+{
+objDBCntxt.UpdateAuditStatus(ObjCommon.getIPAddress(), DateTime.Now, model.loginID.Trim(), objUM.userId, Request.Url.AbsolutePath, "Invalid Username/Password");
+if (objUM.wrongAttemptsCount >= 2)
+{
+int leftAttempt = 5 - (objUM.wrongAttemptsCount);
+TempData["Message"] = "Invalid Username/Password. You have only " + leftAttempt + " attempts left!";
+}
+else
+{
+TempData["Message"] = "Invalid Username/Password. Please check the details !";
+}
+}
+}
+else
+{
+String Msg = "This account has been locked due to multiple invalid login attempts. Please contact to Administrator.";
+objDBCntxt.UpdateAuditStatus(ObjCommon.getIPAddress(), DateTime.Now, model.loginID.Trim(), 0, Request.Url.AbsolutePath, Msg);
+TempData["Message"] = Msg;
+}
+}
+else
+{
+objDBCntxt.UpdateAuditStatus(ObjCommon.getIPAddress(), DateTime.Now, model.loginID.Trim(), 0, Request.Url.AbsolutePath, "Invalid Username/Password");
+TempData["Message"] = "Invalid Login ID/Password. Please check login details!";
+}
+}
+else
+{
+TempData["Message"] = "Please Enter Valid Image Text.";
+}
+}
+return View("Registration", model);
+}
+public ActionResult ChangePassword()
+{
+return View();
+}
+[HttpPost]
+public ActionResult ChangePassword(CitizenRegistration model)
+{
+SectionShow("changePass");
+if (model.oldPassword != null && model.oldPassword != "" && model.newPassword != null && model.newPassword != "" && model.confirmPassword != "" && model.confirmPassword != null)
+{
+if (model.newPassword == model.confirmPassword && Session["UserId"].ToString() != "")
+{
+model.userId = Convert.ToInt64(Session["UserId"].ToString());
+int status = objDBCntxt.ChangePassword(model);
+if (status > 0)
+{
+// SectionShow("login");
+TempData["Message"] = "Password Changed Succesfully. Please Login with New Password!";
+return RedirectToAction("Registration");
+}
+}
+else
+{
+TempData["Message"] = "Confirm password did not match with new password!";
+}
+}
+return View("Registration", model);
+}
+[NoSessionTimeoutAttribute]
+public void SectionShow(string Section)
+{
+if (Section == "submit")
+{
+ViewData["submit"] = "block";
+ViewData["login"] = "none";
+ViewData["changePass"] = "none";
+ViewData["EmailMobileno"] = "none";
+ViewData["forgotPassword"] = "none";
+}
+if (Section == "login")
+{
+ViewData["submit"] = "none";
+ViewData["login"] = "block";
+ViewData["changePass"] = "none";
+ViewData["EmailMobileno"] = "none";
+ViewData["forgotPassword"] = "none";
+}
+if (Section == "changePass")
+{
+ViewData["submit"] = "none";
+ViewData["login"] = "none";
+ViewData["changePass"] = "block";
+ViewData["EmailMobileno"] = "none";
+ViewData["forgotPassword"] = "none";
+}
+if (Section == "emailMobileno")
+{
+ViewData["submit"] = "none";
+ViewData["login"] = "none";
+ViewData["changePass"] = "none";
+ViewData["EmailMobileno"] = "block";
+ViewData["forgotPassword"] = "none";
+}
+if (Section == "forgotPassword")
+{
+ViewData["submit"] = "none";
+ViewData["login"] = "none";
+ViewData["changePass"] = "none";
+ViewData["EmailMobileno"] = "none";
+ViewData["forgotPassword"] = "block";
+}
+}
+public ActionResult UpdateEmailMobile()
+{
+CitizenRegistration model = new CitizenRegistration();
+model = objDBCntxt.GetEmailMobileVerificationFlag(Convert.ToInt64(Session["UserId"].ToString())).FirstOrDefault();
+SectionShow("emailMobileno");
+return View("Registration", model);
+}
+[HttpPost]
+public ActionResult UpdateEmailMobile(CitizenRegistration model)
+{
+string message = "";
+CitizenRegistration chkEmailMobile = objDBCntxt.GetEmailMobileVerificationFlag(Convert.ToInt64(Session["UserId"].ToString())).FirstOrDefault();
+model.userId = Convert.ToInt64(Session["UserId"].ToString());
+string res = string.Empty;
+try
+{
+//if (chkEmailMobile.isEmailVerify == false)
+//{
+// if (chkEmailMobile.isMobileVerify == true)
+// model.forMobileVerify = "";
+// res = objDBCntxt.UpdateEmailMobileByUser(model, 1);
+// if (!string.IsNullOrEmpty(res) && res == "1")
+// {
+// string url = ConfigurationManager.AppSettings["RootURL"].ToString() + "Account/MailVerification?email=" + HttpUtility.UrlEncode(HttpUtility.HtmlEncode(EncryptionDecryption.Encrypt(model.forEmailVerify.Trim()))) + "&userid=" + HttpUtility.UrlEncode(HttpUtility.HtmlEncode(EncryptionDecryption.Encrypt(Session["UserId"].ToString())));
+// message = "Your Email verification link for Login is given below.<br>" + "<a href='" + url + "'>Click Here</a>";
+// // SendMailForEmailVerification(Convert.ToString(Session["DisplayName"]), model.forEmailVerify.Trim(), "Email Verification For Login", message);
+// model.Msg = "Kindly check your mail for E-Mail ID " + "<span style='font-weight:bold'>" + model.forEmailVerify + "</span>" + " for Email verification";
+// }
+// else
+// {
+// TempData["Message"] = "Duplicate Email ID.<br>";
+// }
+//}
+if (chkEmailMobile.isMobileVerify == false)
+{
+if (chkEmailMobile.isEmailVerify == true)
+model.forEmailVerify = "";
+SMSToUserForEmailVerification(chkEmailMobile.MobileNumber.Trim(), model.userId);
+model.Msg = "An OTP has been sent to your registered number " + "<span style='font-weight:bold'>" + chkEmailMobile.MobileNumber.Trim() + "</span>" + " and should reach you in few seconds.. ";
+model.OTPSend = 1;
+//res = objDBCntxt.UpdateEmailMobileByUser(model, 2);
+//if (!string.IsNullOrEmpty(res) && res == "2")
+//{
+// // SMSToUserForEmailVerification(model.forMobileVerify.Trim());
+// model.Msg = "An OTP has been sent to your registered number " + "<span style='font-weight:bold'>" + model.forMobileVerify.Trim() + "</span>" + " and should reach you in few seconds.. ";
+// model.OTPSend = 1;
+//}
+//else
+//{
+// TempData["Message"] = "Duplicate Mobile No.";
+//}
+}
+}
+catch
+{
+TempData["Message"] = res;
+}
+SectionShow("emailMobileno");
+return View("Registration", model);
+}
+public ActionResult MailVerification()
+{
+CitizenRegistration model = new CitizenRegistration();
+string email = HttpUtility.UrlEncode(HttpUtility.HtmlEncode(EncryptionDecryption.Decrypt(Request.QueryString["email"])));
+string userID = HttpUtility.UrlEncode(HttpUtility.HtmlEncode(EncryptionDecryption.Decrypt(Request.QueryString["userid"])));
+string Status = objDBCntxt.VerifyEmail(Convert.ToInt64(userID), email);
+if (Status == "1")
+{
+TempData["Message"] = "Email verified successfully.";
+return RedirectToAction("Registration");
+}
+else
+{
+TempData["Message"] = "Email not verified!";
+SectionShow("emailMobileno");
+}
+return RedirectToAction("Registration");
+}
+[HttpPost]
+public ActionResult VerifyMobile(CitizenRegistration model)
+{
+model.userId = Convert.ToInt64(Session["UserId"]);
+string Status = objDBCntxt.VerifyMobile(model);
+if (Status == "1")
+{
+TempData["Message"] = "OTP verified successfully.";
+return RedirectToAction("Registration");
+}
+else
+{
+TempData["Message"] = "Invalid OTP!";
+model.OTPSend = 1;
+SectionShow("emailMobileno");
+}
+return View("Registration", model);
+}
+[NoSessionTimeoutAttribute]
+[HttpPost]
+public ActionResult VerifyMobileFirstLogin(CitizenRegistration model)
+{
+model.userId = Convert.ToInt64(Session["FirstUserId"]);
+GetStatus ObjGS = new GetStatus();
+ObjGS = objDBCntxt.VerifyMobileFirst(model).FirstOrDefault();
+if (ObjGS.status == 1)
+{
+TempData["Message"] = "OTP verified successfully.";
+string originalPassword = ObjGS.originalPassword;
+string msg = "Your Login ID is : " + model.MobileNumber + " and Password is : " + originalPassword + ". Please change password on your first login.";
+string subject = "Credentials";
+//SendingMail(model.EmailID,subject, model.CitizenName, msg);//For Email
+SndSMS(model.MobileNumber, msg);//For SMS
+SectionShow("login");
+return View("Registration", model);
+}
+else
+{
+TempData["Message"] = "Invalid OTP!";
+model.OTPSend = 1;
+SectionShow("submit");
+}
+return View("Registration", model);
+}
+[HttpPost]
+public ActionResult ForgotPassword(CitizenRegistration model)
+{
+model.userPassword = "";
+model.loginID = model.forgotloginID;
+if (model.loginID != null && model.loginID != "")
+{
+UserModel objUM = objDBCntxt.GetLogin(model).FirstOrDefault();
+if (objUM != null && objUM.DisplayName != "")
+{
+CitizenRegistration chkEmailMobile = objDBCntxt.GetEmailMobileVerificationFlag(objUM.userId).FirstOrDefault();
+if (chkEmailMobile.isMobileVerify == false)
+{
+TempData["Message"] = "Mobile and Email Id is not verified!";
+}
+else
+{
+model.userId = objUM.userId;
+GetStatus ObjGS = new GetStatus();
+ObjGS = objDBCntxt.updatePasswordForForgotpassword(model).FirstOrDefault();
+string originalPassword = ObjGS.originalPassword;
+string msg = "Your Password is : " + originalPassword;
+string subject = "Forgot Password";
+if (ObjGS.status == 1)
+{
+//if (chkEmailMobile.isEmailVerify == true)
+//{
+// //SendingMail(chkEmailMobile.forEmailVerify,subject, chkEmailMobile.CitizenName,msg);//For Email
+//}
+if (chkEmailMobile.isMobileVerify == true)
+{
+SndSMS(chkEmailMobile.forMobileVerify, msg);//For SMS
+}
+TempData["Message"] = "Your password has been reset and send to registered mobile number.";
+return RedirectToAction("Registration");
+}
+else
+{
+model.Msg = "Password could not reset!";
+}
+}
+}
+else
+{
+TempData["Message"] = "User not exist!";
+}
+}
+else { }
+SectionShow("forgotPassword");
+return View("Registration", model);
+}
+#region Send Mail ForEmailVerification
+protected void SendMailForEmailVerification(string name, string email, string subject, string msg)
+{
+string from = ConfigurationManager.ConnectionStrings["Fromemail"].ConnectionString;
+StreamReader reader;
+reader = new StreamReader(HostingEnvironment.MapPath(@"~/mailtemplate/EmailVerificationTemplate.htm"));
+string MailBody = reader.ReadToEnd();
+MailBody = MailBody.Replace("[Subject]", subject);
+MailBody = MailBody.Replace("[Name]", name);
+MailBody = MailBody.Replace("[MessageBody]", msg);
+MailBody = MailBody.Replace("[From]", from);
+MailBody = MailBody.Replace("[Date]", DateTime.Now.ToString());
+BulkMail.sendMail(email, subject, MailBody);
+}
+#endregion
+#region Send SMS ForEmailVerification
+public void SMSToUserForEmailVerification(string mobileNo, Int64 userId)
+{
+string OTP = Convert.ToString(randomNumber.GetRandom());
+string msg = "Your One Time Password for Mobile verification is: " + OTP;
+SendSMS.SMSSend(msg, mobileNo);
+objDBCntxt.UpdateMobileVerificationOTP(mobileNo, OTP, userId);
+}
+#endregion
+void SendingMail(string email, string subject, string name, string msg)
+{
+string from = ConfigurationManager.ConnectionStrings["Fromemail"].ConnectionString;
+StreamReader reader;
+reader = new StreamReader(HostingEnvironment.MapPath(@"~/mailtemplate/EmailVerificationTemplate.htm"));
+string MailBody = reader.ReadToEnd();
+MailBody = MailBody.Replace("[Subject]", subject);
+MailBody = MailBody.Replace("[Name]", name);
+MailBody = MailBody.Replace("[MessageBody]", msg);
+MailBody = MailBody.Replace("[From]", from);
+MailBody = MailBody.Replace("[Date]", DateTime.Now.ToString());
+BulkMail.sendMail(email, subject, MailBody);
+}
+#region Send SMS
+void SndSMS(string mobileNo, string msg)
+{
+SendSMS.SMSSend(msg, mobileNo);
+}
+#endregion
+[HttpPost]
+[ValidateAntiForgeryToken]
+public ActionResult LogOff()
+{
+WebSecurity.Logout();
+return RedirectToAction("Index", "Home");
+}
+public ActionResult Register()
+{
+return View();
+}
+}
+}

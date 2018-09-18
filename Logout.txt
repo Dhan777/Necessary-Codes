@@ -1,0 +1,29 @@
+Link to LogoutCode in MVC
+---------------------------------------------------
+http://stackoverflow.com/questions/19315742/after-logout-if-browser-back-button-press-then-it-go-back-last-screen
+---------------------------------------------------
+public ActionResult Logout()
+    {
+        Session.Clear();
+        Session.Abandon();
+        Session.RemoveAll();
+
+        FormsAuthentication.SignOut();
+
+
+        this.Response.Cache.SetExpires(DateTime.UtcNow.AddMinutes(-1));
+        this.Response.Cache.SetCacheability(HttpCacheability.NoCache);
+        this.Response.Cache.SetNoStore();          
+
+        return RedirectToAction("Login");
+    }
+
+Global Asax File Content
+---------------------------------------------------
+ protected void Application_BeginRequest()
+        {
+            Response.Cache.SetCacheability(HttpCacheability.NoCache);
+            Response.Cache.SetExpires(DateTime.UtcNow.AddHours(-1));
+            Response.Cache.SetNoStore();
+        }
+---------------------------------------------------

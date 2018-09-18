@@ -1,0 +1,27 @@
+Controller Multiple Values in ViewBag From Controller
+
+------------------------------------------------------------------------
+
+#region ComplaintCategoriesddl
+
+            DropDown D = new DropDown(); D.ProcID = 1;
+
+            var categories = new CG_DbContext().getCGCategoryDropDown(D).Select(c => new
+
+            {
+
+                CategoryID = c.Value,
+
+                CategoryName = c.Text
+
+            }).ToList();
+
+            ViewBag.Categories = new MultiSelectList(categories, "CategoryID", "CategoryName");
+
+            #endregion
+
+View Page
+
+------------------------
+
+ @Html.DropDownList("CategoryId", (MultiSelectList)ViewBag.Categories, new { multiple = "multiple", size = 8, @Validatekey = "inputDep", @required = "required" })

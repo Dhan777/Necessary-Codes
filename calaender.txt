@@ -1,0 +1,190 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+
+namespace ConsoleApplication3
+{
+    class Program
+    {
+
+
+        int FMonth, FYear, FDay;
+        int Day, Month, Year;
+        int  Month1, Year1, Remainder,YearTwo;
+        int FinalValure;
+        int ProcessConvert;
+
+        public void Calculation()
+        {
+            Console.WriteLine("Enter the Day");
+            Day = Convert.ToInt32(Console.ReadLine());
+            Console.WriteLine("Enter the Month");
+            Month = Convert.ToInt32(Console.ReadLine());
+            Month1 = Month - 1;
+            Console.WriteLine("Enter the Year");
+            Year = Convert.ToInt32(Console.ReadLine());
+            Year1 = Year - 1;
+            if (Day == 0)
+            {
+                FDay = 0;
+            }
+            else
+            {
+
+
+                FDay = Day % 7;
+            }
+            switch (Month1)
+            {
+                case 0:
+                    FMonth = 0;
+                    break;
+                case 1:
+                    FMonth = 3;
+                    break;
+                case 2:
+                    FMonth = 0+3;
+                    break;
+                case 3:
+                    FMonth = 3 + 0 + 3;
+                    break;
+                case 4:
+                    FMonth = 2 + 3 + 0 + 3;
+                    break;
+                case 5:
+                    FMonth = 3 + 2 + 3 + 0 + 3;
+                    break;
+                case 6:
+                    FMonth = 2 + 3 + 2 + 3 + 0 + 3 + 0;
+                    break;
+                case 7:
+                    FMonth = 3 + 2 + 3 + 2 + 3 + 0 + 3 + 0;
+                    break;
+                case 8:
+                    FMonth = 3 + 3 + 2 + 3 + 2 + 3 + 3 + 0;
+                    break;
+                case 9:
+                    FMonth = 2 + 3 + 3 + 2 + 3 + 2 + 3 + 3 + 0;
+                    break;
+                case 10:
+                    FMonth = 3 + 2 + 3 + 3 + 2 + 3 + 2 + 3 + 3 + 0;
+                    break;
+                case 11:
+                    FMonth = 2 + 3 + 2 + 3 + 3 + 2 + 3 + 2 + 3 + 3 + 0;
+                    break;
+                default:
+                    Console.WriteLine("INVALID");
+                    break;
+            }
+
+            YearTwo = Year1 % 400;
+            if (YearTwo == 0)
+            {
+                FYear = 0;
+            }
+            else
+            {
+
+
+                if (YearTwo <= 100)
+                {
+                    if (YearTwo == 100)
+                    {
+                        FYear = 5;
+                    }
+                    else
+                    {
+                        Remainder = YearTwo / 4;
+                        FYear = (Remainder + YearTwo) % 7;
+                    }
+                }
+                if (YearTwo > 100 && YearTwo <= 200)
+                {
+                    if (YearTwo == 200)
+                    {
+                        FYear = 3;
+                    }
+                    else
+                    {
+                        ProcessConvert = YearTwo - 100;
+                        Remainder = ProcessConvert / 4;
+                        FYear = (Remainder + ProcessConvert +5) % 7;
+                    }
+                }
+                if (YearTwo > 200 && YearTwo <= 300)
+                {
+                    if (YearTwo == 300)
+                    {
+                        FYear = 1;
+                    }
+                    else
+                    {
+                        ProcessConvert = YearTwo - 200;
+                        Remainder = ProcessConvert / 4;
+                        FYear = (Remainder + ProcessConvert+3) % 7;
+
+
+                    }
+                    if (YearTwo > 300 && YearTwo <= 400)
+                    {
+                        if (YearTwo == 400)
+                        {
+                            FYear = 0;
+                        }
+                        else
+                        {
+                            ProcessConvert = YearTwo - 300;
+                            Remainder = ProcessConvert / 4;
+                            FYear = (Remainder + ProcessConvert+1) % 7;
+                      
+                        }
+                    }
+                }
+
+                FinalValure = (FDay + FMonth + FYear) % 7;
+                switch (FinalValure)
+                {
+
+
+                    case 0:
+
+                        Console.WriteLine("SUNDAY");
+                        break;
+                    case 1:
+                        Console.WriteLine("MONDAY");
+                        break;
+
+                    case 2:
+                        Console.WriteLine("TUESDAY");
+                        break;
+
+                    case 3:
+                        Console.WriteLine("WEDNESSDAY");
+                        break;
+
+                    case 4:
+                        Console.WriteLine("THURSDAY");
+                        break;
+
+                    case 5:
+                        Console.WriteLine("FRIDAY");
+                        break;
+
+                    case 6:
+                        Console.WriteLine("SATURDAY");
+                        break;
+                    default:
+                        Console.WriteLine("INVALID");
+                        break;
+                }
+            }
+        }
+        static void Main(string[] args)
+        {
+            Program op = new Program();
+            op.Calculation();
+            Console.ReadLine();
+        }
+    }
+}

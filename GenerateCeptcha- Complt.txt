@@ -1,0 +1,21 @@
+[NoSessionTimeoutAttribute]
+public ActionResult generateCaptcha()
+{
+var dropdowndata = this.Session.SessionID.ToString() + ".png";
+string filePath = AppDomain.CurrentDomain.BaseDirectory + "./Content/writereaddata/Captcha/" + dropdowndata;
+System.Drawing.FontFamily family = new System.Drawing.FontFamily("Arial");
+CaptchaImage img = new CaptchaImage(150, 50, family);
+string text = img.CreateRandomText(4).ToUpper();
+img.SetText(text);
+img.GenerateImage();
+Session["captchaText"] = text;
+img.Image.Save(filePath, System.Drawing.Imaging.ImageFormat.Png);
+byte[] d = System.IO.File.ReadAllBytes(filePath);
+System.IO.File.Delete(filePath);
+//return File(d, "application/octet-stream");
+var bytestrim = d;
+return base.File(bytestrim, "image/png");
+//return Json("/Content/writereaddata/Captcha/" + dropdowndata + "?t=" + DateTime.Now.Ticks, JsonRequestBehavior.AllowGet);
+//test
+}
+<img id="m_imgCaptcha" alt="Captcha" src='@Url.Action("generateCaptcha", "Account")' class="capcha" />&nbsp;&nbsp

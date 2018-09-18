@@ -1,0 +1,39 @@
+protected void Application_Start()
+{
+AreaRegistration.RegisterAllAreas();
+Database.SetInitializer<CG_DbContext>(null);
+WebApiConfig.Register(GlobalConfiguration.Configuration);
+FilterConfig.RegisterGlobalFilters(GlobalFilters.Filters);
+RouteConfig.RegisterRoutes(RouteTable.Routes);
+BundleConfig.RegisterBundles(BundleTable.Bundles);
+AuthConfig.RegisterAuth();
+}
+
+protected void Application_Error(object sender, EventArgs e)
+{
+try
+{
+if (Server.GetLastError() != null)
+{
+NPPLalitpur_DbContext objDB = new NPPLalitpur_DbContext();
+Exception ex = Server.GetLastError();
+
+StackTrace st = new StackTrace(ex);
+StackFrame sf = st.GetFrame(2);
+
+MethodBase currentMethodName = sf.GetMethod();
+
+string method = string.Format("{0}.{1}", MethodBase.GetCurrentMethod().DeclaringType.FullName, MethodBase.GetCurrentMethod().Name);
+objDB.submitError(ex, HttpContext.Current.Request.Url.ToString(), MethodBase.GetCurrentMethod().Name.ToString());
+}
+}
+catch
+{
+Server.ClearError();
+Response.Clear();
+}
+finally
+{
+ActionExecutingContext filterContext = new ActionExecutingContext();
+filterContext.Result = new RedirectToRouteResult(new RouteValueDictionary(new { controller = "Account", action = "Registration", area = "" }));
+}

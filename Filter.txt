@@ -1,0 +1,44 @@
+using System;
+using System.Linq;
+using System.Web;
+using System.Web.Mvc;
+using System.Web.Routing;
+namespace NNPLalitpur.Filters
+{
+[AttributeUsageAttribute(AttributeTargets.Class | AttributeTargets.Method, Inherited = true, AllowMultiple = false)]
+public class SessionTimeoutAttribute : ActionFilterAttribute
+{
+public override void OnActionExecuting(ActionExecutingContext filterContext)
+{
+if (filterContext.ActionDescriptor.GetCustomAttributes(typeof(NoSessionTimeoutAttribute), false).Any())
+{
+return;
+}
+if (filterContext.HttpContext.Request.UrlReferrer == null || filterContext.HttpContext.Request.Url.Host != filterContext.HttpContext.Request.UrlReferrer.Host)
+{
+filterContext.Result = new RedirectToRouteResult(new RouteValueDictionary(new { controller = "Account", action = "Registration", area = "" }));
+}
+else
+{
+HttpContext ctx = HttpContext.Current;
+if (String.IsNullOrEmpty(Convert.ToString(HttpContext.Current.Session["DisplayName"])) &&
+String.IsNullOrEmpty(Convert.ToString(HttpContext.Current.Session["UsrRoleID"])) &&
+String.IsNullOrEmpty(Convert.ToString(HttpContext.Current.Session["UserId"])) &&
+String.IsNullOrEmpty(Convert.ToString(HttpContext.Current.Session["Loginid"])) &&
+String.IsNullOrEmpty(Convert.ToString(HttpContext.Current.Session["DesignationName"])) &&
+String.IsNullOrEmpty(Convert.ToString(HttpContext.Current.Session["DistrictName"])))
+{
+if (filterContext.HttpContext.Request.IsAjaxRequest()){ }
+else
+{
+filterContext.Result = new RedirectToRouteResult(new RouteValueDictionary(new { controller = "Account", action = "Registration", area = "" }));
+}
+}
+base.OnActionExecuting(filterContext);
+}
+}
+}
+public class NoSessionTimeoutAttribute : ActionFilterAttribute
+{
+}
+}

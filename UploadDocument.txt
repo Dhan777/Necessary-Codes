@@ -1,0 +1,135 @@
+https://www.c-sharpcorner.com/article/introduction-to-sql-operations-studio-and-make/
+#region GetMIMEType_Code
+//
+// GET: /ComplaintsAndGrievances/
+[DllImport(@"urlmon.dll", CharSet = CharSet.Auto)]
+private extern static System.UInt32 FindMimeFromData(System.UInt32 pBC,
+[MarshalAs(UnmanagedType.LPStr)] System.String pwzUrl,
+[MarshalAs(UnmanagedType.LPArray)] byte[] pBuffer,
+System.UInt32 cbSize, [MarshalAs(UnmanagedType.LPStr)] System.String pwzMimeProposed,
+System.UInt32 dwMimeFlags,
+out System.UInt32 ppwzMimeOut,
+System.UInt32 dwReserverd);
+#endregion
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#region UploadImage
+var allowedExtensions = new[] { ".jpg", "jpeg" };
+if (model != null)
+{
+if (model.File != null && model.File.ContentLength > 0)
+{
+String fn = Path.GetFileNameWithoutExtension(model.File.FileName);
+ext = Path.GetExtension(model.File.FileName).ToLower();
+char[] SpecialChars = "!@#$%^&*()+=~`\\|/?><,\"".ToCharArray(); //Special Character To Check file name
+int indexOf = fn.IndexOfAny(SpecialChars);
+String fileName = fn;
+int count = fileName.Split('.').Length - 1;
+if (count > 0)
+{
+TempData["Msg"] = "Double extension not allowed in file name";
+return false;
+}
+if (indexOf != -1)
+{
+TempData["Msg"] = "Special character not allowed in file name";
+return false;
+}
+//string mimetype = model.File.ContentType;
+#region MIMETypeCode--
+byte[] document = new byte[model.File.ContentLength];
+model.File.InputStream.Read(document, 0, model.File.ContentLength);
+System.UInt32 mimetype;
+FindMimeFromData(0, null, document, 256, null, 0, out mimetype, 0);
+System.IntPtr mimeTypePtr = new IntPtr(mimetype);
+string mime = Marshal.PtrToStringUni(mimeTypePtr);
+Marshal.FreeCoTaskMem(mimeTypePtr);
+#endregion
+if ((ext == ".pdf" && mime == "application/pdf") || (ext == ".jpg" && mime == "image/jpeg") || (ext == ".jpg" && mime == "image/pjpeg") || (ext == ".jpeg" && mime == "image/jpeg") || (ext == ".jpeg" && mime == "image/pjpeg"))
+{
+string fFullName = model.File.FileName;
+int len = fFullName.Length;
+string ext1 = fFullName.Substring(len - 4);
+string str = fFullName.Substring(fFullName.LastIndexOf("\\") + 1);
+len = str.Length;
+string fileN = str.Substring(0, len - 4);
+Regex FilenameRegex = null;
+FilenameRegex = new Regex("(.*?)\\.(pdf|PDF|jpg|JPG|jpeg|JPEG)$", RegexOptions.IgnoreCase);
+int index = fileN.IndexOf(".");
+if (!FilenameRegex.IsMatch(fFullName) || index != -1)
+{
+TempData["Msg"] = "Please upload .pdf/Image file only";
+return false;
+}
+else
+{
+string Photoname = Path.GetFileNameWithoutExtension(model.File.FileName);
+string fileSize = model.File.ContentLength.ToString();
+String ImageFileNameMBA = model.File.FileName;
+HttpPostedFileBase ImageFileMBA = model.File;
+Byte[] stu_imageMBA = new Byte[ImageFileMBA.ContentLength];
+Stream fs = model.File.InputStream;
+fs.Read(stu_imageMBA, 0, Convert.ToInt32(fileSize));
+fs.Seek(0, SeekOrigin.Begin);
+StreamReader sr = new StreamReader(fs, true);
+string firstLine = sr.ReadLine().ToString();
+//string firstLine = "JFIF";
+//if ((firstLine.IndexOf("%PDF") > -1) || (firstLine.IndexOf("%JPG") > -1) || (firstLine.IndexOf("%JPEG") > -1))
+// {
+decimal size = Math.Round(((decimal)model.File.ContentLength / (decimal)1024), 2);
+fn = "";
+#region CodeToUpload
+if (size <= 100)
+{
+fs.Seek(0, SeekOrigin.Begin);
+fn = DateTime.Now.ToString("yyyyMMddHHmmssffff");
+//string pdfname = "O_" + fn + "" + ext;
+//model.File.SaveAs(Server.MapPath("~\\UploadedFiles\\" + pdfname));
+#region WorkingCode
+// var ext = Path.GetExtension(model.File.FileName);
+#region CheckFileSizeAndUpload
+if (allowedExtensions.Contains(ext))
+{
+if (size <= 100)
+{
+// FileUpload = 1;
+//string _filename = model.File.FileName;
+//string _path = Path.Combine(Server.MapPath("~/Content/Uploads/OfficerPhoto/"), _filename);
+//model.File.SaveAs(_path);
+return true;
+}
+else
+{
+TempData["Msg"] = "File Size More than 2 KB is not allowed. ";
+return false;
+}
+}
+#endregion
+else
+{
+TempData["Msg"] = "File Extension is not valid Upload only Image or Pdf File";
+return false;
+}
+#endregion
+}
+#endregion
+else
+{
+TempData["Msg"] = "File size can not exceed 2 KB ";
+return false;
+}
+}
+}
+else
+{
+TempData["Msg"] = "Please Upload JPG/JPEG ";
+return false;
+}
+#endregio
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+In RPT String Seprated By -
+{NNPLalitpur_Models_cg_registration.WardName}&"-"&{NNPLalitpur_Models_cg_registration.AreaName}&"-"&{NNPLalitpur_Models_cg_registration.PoliceStationName}
+-----------------------------------------------------------------------------------
+In RPT String Slit iin nextLine After ,
+----------------------
+replace({Proc_Admin_Report.Remarks},",",chr(13)+chr(10))
+Connect Timeout=100000; pooling='true'; Max Pool Size=200"

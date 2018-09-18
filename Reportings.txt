@@ -1,0 +1,138 @@
+#region Message Box
+public void DisplayMessage(string message, string messageStatus_s_e_w_i_Or_blank)
+{
+string status = messageStatus_s_e_w_i_Or_blank.ToLower();
+TempData["Message"] = message;
+if (status == "s")
+TempData["messageStatus"] = "success";
+else if (status == "e")
+TempData["messageStatus"] = "error";
+else if (status == "w")
+TempData["messageStatus"] = "warning";
+else if (status == "i")
+TempData["messageStatus"] = "info";
+}
+#endregion
+public ActionResult Print_CG_Report(string Status)
+{
+cg_registration model = new cg_registration();
+model.ComplaintsList = new CG_DbContext().Print_Admin_Report(Status);
+ReportDocument rd = new ReportDocument();
+rd.Load(Path.Combine(Server.MapPath("~/Report"), "CG_ComplaintStatus.rpt"));
+rd.SetDataSource(model.ComplaintsList);
+string ModuleName = ConfigurationManager.AppSettings["ModuleName"];
+rd.SetParameterValue("ModuleName", ModuleName);
+rd.SetParameterValue("PrintedBy", Session["DisplayName"].ToString());
+Response.Buffer = false;
+Response.ClearContent();
+Response.ClearHeaders();
+try
+{
+Stream stream = rd.ExportToStream(CrystalDecisions.Shared.ExportFormatType.PortableDocFormat);
+stream.Seek(0, SeekOrigin.Begin);
+return File(stream, "application/pdf", "ComplaintStatus.pdf");
+}
+catch (Exception ex)
+{
+throw;
+}
+#region TestReport
+// cg_registration model = new cg_registration();
+// model.ComplaintsList = new CG_DbContext().Get_CG_Registrations(Status);
+// Common objCommon = new Common();
+// DataSet dsData = new DataSet();
+// DataTable dtComplaintsList = new DataTable();
+// DataTable dtComplaintRemarks = new DataTable();
+// //model.ComplaintsList = new CG_DbContext().Get_Registered_Complaints(model).ToList();
+// dtComplaintsList = objCommon.Convert_LINQResult_To_DataTable<cg_registration>(model.ComplaintsList);
+// dtComplaintsList.TableName = "dtComplaintsList";
+// model.ComplaintNo = "C210100001";
+// model.ComplaintRemarks = new CG_DbContext().Get_Registered_Complaints_Remarks(model.ComplaintNo).ToList();
+// dtComplaintRemarks = objCommon.Convert_LINQResult_To_DataTable<CG_ComplaintRemarks>(model.ComplaintRemarks);
+// dtComplaintRemarks.TableName = "Proc_Get_Remarks";
+// dsData.Tables.Add(dtComplaintsList);
+// dsData.Tables.Add(dtComplaintRemarks);
+// ReportDocument rd = new ReportDocument();
+// rd.Load(Path.Combine(Server.MapPath("~/Report/"), "TestReport.rpt"));
+// //rd.Database.Tables[0].SetDataSource(model.ComplaintsList);
+// //rd.Database.Tables[0].SetDataSource(model.ComplaintRemarks);
+// rd.SetDataSource(dsData);
+// string ModuleName = ConfigurationManager.AppSettings["ModuleName"];
+//// rd.SetParameterValue("ModuleName", ModuleName);
+//// rd.SetParameterValue("PrintedBy", Session["DisplayName"].ToString());
+// Response.Buffer = false;
+// Response.ClearContent();
+// Response.ClearHeaders();
+// try
+// {
+// Stream stream = rd.ExportToStream(CrystalDecisions.Shared.ExportFormatType.PortableDocFormat);
+// stream.Seek(0, SeekOrigin.Begin);
+// return File(stream, "application/pdf", model.ComplaintsList.First().ComplaintNo.ToString() + ".pdf");
+// }
+// catch (Exception ex)
+// {
+// return Json("Error", JsonRequestBehavior.AllowGet);
+// }
+#endregion
+}
+public ActionResult ExportToExcel(cg_Feedback model)
+{
+cg_registration reg = new cg_registration();
+reg.ComplaintNo = "C050100002";
+reg.ProcId = 2;
+// reg.ComplaintsList= new CG_DbContext().Get_Registered_Complaints(reg);
+Common objCommon = new Common();
+DataSet dsData = new DataSet();
+DataTable dtComplaintsList = new DataTable();
+DataTable dtComplaintRemarks = new DataTable();
+dtComplaintsList = objCommon.Convert_LINQResult_To_DataTable<cg_registration>(new CG_DbContext().Get_Registered_Complaints(reg));
+DataTable dt = dtComplaintsList;
+GridView grdRecordCS = new GridView();
+grdRecordCS.AutoGenerateColumns = true;
+Int16 colNo = 0;
+if (dt != null && dt.Rows.Count > 0)
+{
+// DataColumn dcol = new DataColumn(ID, typeof(System.Int32));
+// dcol.AutoIncrement = true;
+colNo = Convert.ToInt16(dt.Columns.Count);
+grdRecordCS.DataSource = dt;
+grdRecordCS.DataBind();
+grdRecordCS.AllowPaging = false;
+//Add Header Text
+GridViewRow row = new GridViewRow(0, -1, DataControlRowType.Header, DataControlRowState.Normal);
+TableCell tc = new TableHeaderCell();
+tc.Text = "Complaint's List : As On Date (" + DateTime.Today.ToString("dd/MM/yyyy") + ")";
+tc.ColumnSpan = colNo;
+tc.Style.Add("border", "0");
+tc.Font.Size = 16;
+tc.HorizontalAlign = HorizontalAlign.Center;
+row.Cells.Add(tc);
+System.Web.UI.WebControls.Table ttemp = grdRecordCS.Controls[0] as System.Web.UI.WebControls.Table;
+ttemp.Rows.AddAt(0, row);
+//Set the content type to Excel.
+Response.ContentType = "application/vnd.ms-excel";
+Response.AddHeader("content-disposition", "attachment;filename=EmployeesTelephoneNumbers.xls");
+//Remove the charset from the Content-Type header.
+Response.Charset = "";
+//Turn off the view state.
+// this.EnableViewState = false;
+System.IO.StringWriter tw = new System.IO.StringWriter();
+System.Web.UI.HtmlTextWriter hw = new System.Web.UI.HtmlTextWriter(tw);
+//code written for excel
+HtmlForm frm = new HtmlForm();
+frm.Attributes.Add("ID", "frm1");
+frm.Attributes.Add("runat", "Server");
+grdRecordCS.Attributes.Add("runat", "Server");
+frm.Controls.Add(grdRecordCS);
+grdRecordCS.RenderControl(hw);
+//Write the HTML back to the browser.
+Response.Write(tw.ToString());
+//End the response.
+Response.End();
+}
+else
+{
+//msgBoxSave.Show("No Record Found.");
+}
+return View();
+}

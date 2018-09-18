@@ -1,0 +1,87 @@
+ public ActionResult Print_CG_Report(string ComplaintNo)
+
+        {
+
+          cg_registration model = new cg_registration();
+
+            model.ProcId = 2;
+
+            model.ComplaintNo=ComplaintNo;
+
+            Common objCommon = new Common();
+
+            DataSet dsData = new DataSet();
+
+            DataTable dtComplaintsList = new DataTable();
+
+            DataTable dtComplaintRemarks = new DataTable();
+
+
+
+            model.ComplaintsList = new CG_DbContext().Get_Registered_Complaints(model).ToList();
+
+            dtComplaintsList = objCommon.Convert_LINQResult_To_DataTable<cg_registration>(model.ComplaintsList);
+
+            dtComplaintsList.TableName = "dtComplaintsList";
+
+
+
+            model.ComplaintRemarks = new CG_DbContext().Get_Registered_Complaints_Remarks(model.ComplaintNo).ToList();
+
+
+
+            dtComplaintRemarks = objCommon.Convert_LINQResult_To_DataTable<CG_ComplaintRemarks>(model.ComplaintRemarks);
+
+            dtComplaintRemarks.TableName = "dtComplaintRemarks";
+
+
+
+            dsData.Tables.Add(dtComplaintsList);
+
+            dsData.Tables.Add(dtComplaintRemarks);
+
+
+
+            ReportDocument rd = new ReportDocument();
+
+            rd.Load(Path.Combine(Server.MapPath("~/Report/"), "ComplaintsList.rpt"));           
+
+            //rd.Database.Tables[0].SetDataSource(model.ComplaintsList);
+
+            //rd.Database.Tables[0].SetDataSource(model.ComplaintRemarks);
+
+            rd.SetDataSource(dsData);
+
+         string ModuleName= ConfigurationManager.AppSettings["ModuleName"];
+
+         rd.SetParameterValue("ModuleName", ModuleName);
+
+         rd.SetParameterValue("PrintedBy", Session["DisplayName"].ToString());
+
+            Response.Buffer = false;
+
+            Response.ClearContent();
+
+            Response.ClearHeaders();
+
+            try
+
+            {
+
+                Stream stream = rd.ExportToStream(CrystalDecisions.Shared.ExportFormatType.PortableDocFormat);
+
+                stream.Seek(0, SeekOrigin.Begin);
+
+                return File(stream, "application/pdf", model.ComplaintsList.First().ComplaintNo.ToString() + ".pdf");
+
+            }
+
+            catch (Exception ex)
+
+            {
+
+                return Json("Error", JsonRequestBehavior.AllowGet);
+
+            }
+
+}

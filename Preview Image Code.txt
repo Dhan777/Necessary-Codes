@@ -1,0 +1,153 @@
+@{
+
+    ViewBag.Title = "Index";
+
+}
+
+<table>
+
+    <tr>
+
+        <th>Name</th>
+
+        <td><input type="text" /></td>
+
+    </tr>
+
+    <tr>
+
+        <th>Age</th>
+
+        <td><input type="text" /></td>
+
+    </tr>
+
+    <tr>
+
+        <th>Email</th>
+
+        <td><input type="text" /></td>
+
+    </tr>
+
+    <tr>
+
+        <th>Address</th>
+
+        <td><input type="text" /></td>
+
+    </tr>
+
+</table>
+
+   <input type="button" value="Add More" style="float:right" />
+
+<table>
+
+    <tr>
+
+        <th>Board</th>
+
+        <th>Subject</th>
+
+        <th>Total marks</th>
+
+        <th>Obtain Marks</th>
+
+        <th>Perc.</th>
+
+        <th>Close</th>
+
+    </tr>
+
+    <tr srt="s">
+
+        <td><select><option>Select</option></select></td>
+
+        <td><input type="text" id="Subject" /></td>
+
+        <td><input type="text" id="MMarks" /></td>
+
+        <td><input type="text" id="OMarks" onchange="Per($(this))" /></td>
+
+        <td><input type="text" id="Per" /></td>
+
+        <td onclick="$(this).parent().remove()">X</td>
+
+    </tr>
+
+
+
+
+
+</table>
+
+
+
+<br />
+
+<input type='file' onchange="readURL(this);" />
+
+<img id="ShowImage" src="#"  />
+
+<br />
+
+ @section Scripts
+
+ {
+
+     <script>
+
+         $(document).ready(function () {
+
+             $('input[type="Button"]').click(function () {
+
+                 $('tr[srt="s"]:last').after($('tr[srt="s"]:last').clone());
+
+             });
+
+             $("#ShowImage").css("display", "none");
+
+         });
+
+         function Per(p)
+
+         {
+
+             var obtainMarks =parseFloat($(p).val());
+
+             var TotalMarks = parseFloat($(p).parent().parent().find('input[id="MMarks"]').val());
+
+             var Percs = parseFloat((obtainMarks / TotalMarks) * 100);
+
+             $(p).parent().parent().find('input[id="Per"]').val(Percs.toFixed(2)+"%");
+
+         }
+
+
+
+         function readURL(input) {
+
+             if (input.files && input.files[0]) {
+
+                 var reader = new FileReader();
+
+
+
+                 reader.onload = function (e) {
+
+                     $('#ShowImage').attr('src', e.target.result).width(150).height(200);
+
+                 };
+
+                 $("#ShowImage").css("display", "inline");
+
+                 reader.readAsDataURL(input.files[0]);
+
+             }
+
+         }
+
+     </script>
+
+}
